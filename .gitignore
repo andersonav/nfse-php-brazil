@@ -1,6 +1,7 @@
 .idea/
 composer.lock
 vendor/
-exemples/certs/
-exemples/local/
+examples/certs/
+examples/local/
 nfse-servicos.ini
+.phpunit.cache/
