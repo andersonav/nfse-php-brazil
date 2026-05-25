@@ -1,0 +1,24 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nfse-php-brazil-app
+    working_dir: /app
+    volumes:
+      - ./:/app
+    tty: true
+    stdin_open: true
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nfse-php-brazil-web
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: php -S 0.0.0.0:8080 -t web/public
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app

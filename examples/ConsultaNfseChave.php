@@ -1,0 +1,23 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 'On');
+date_default_timezone_set('America/Sao_Paulo');
+include __DIR__ . '/../vendor/autoload.php';
+
+try {
+    $config = new stdClass();
+    $config->tpamb = 1; //1 - Produção, 2 - Homologação
+    $config->prefeitura = "3550308"; // IBGE ou alias, ex.: sao-paulo-sp
+    $configJson = json_encode($config);
+    $content = file_get_contents('certificado.pfx');
+    $password = 'senha_certificado';
+    $cert = \NFePHP\Common\Certificate::readPfx($content, $password);
+    $tools = new \Alves\NfseBrasil\Tools($configJson, $cert);
+
+    //Informar chave da NFSe, retorna XML
+    $response = $tools->consultarNfseChave('00000000000000000000000000000000000000000000000000');
+    dd($response);
+
+} catch (Exception $e) {
+    dd($e->getMessage(), $e);
+}
