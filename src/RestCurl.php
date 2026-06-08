@@ -48,6 +48,7 @@ class RestCurl extends RestBase
     public string $responseHead;
     public string $responseBody;
     public string $requestBody = '';
+    public string $requestXmlBody = '';
     private string $requestHead;
     private string $cookies = '';
     private array $municipioContext = [];

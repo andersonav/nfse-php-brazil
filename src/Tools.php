@@ -303,6 +303,9 @@ class Tools extends RestCurl
         string $url,
         string $operation
     ): mixed {
+
+        $this->requestXmlBody = '';
+
         $directMethod = $this->resolveRuntimePlanMethod($plan['direct'] ?? null, $plan['direct_candidates'] ?? null);
         if ($directMethod) {
             return $this->invokeRuntimeMethod($directMethod, null, $payload, $service, $profile, $url, $operation);
@@ -311,6 +314,7 @@ class Tools extends RestCurl
         $transport = strtolower((string) ($plan['transport'] ?? ''));
 
         if ($transport === 'json') {
+            $this->requestXmlBody = '';
             return $this->postJsonToUrl($url, $payload);
         }
 
@@ -386,6 +390,8 @@ class Tools extends RestCurl
         if ($headers === []) {
             $headers[] = 'SOAPAction: ""';
         }
+
+        $this->requestXmlBody = (string) $xml;
 
         return $this->postXmlToUrl($url, $xml, $headers);
     }
