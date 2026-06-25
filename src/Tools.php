@@ -178,16 +178,30 @@ class Tools extends RestCurl
      * @param string $service chave canônica do serviço (ex.: gerar_nf_se, recepcionar)
      * @return mixed
      */
-    public function emitirNfseMunicipal(array|string $payload, string $service = 'recepcionar')
+    public function emitirNfseMunicipal(array|string $payload, string $service = 'recepcionar', int $debugCurl = 0)
     {
         ['url' => $url, 'profile' => $profile] = $this->resolveMunicipalDispatchContext($service);
 
-        $runtime = $this->dispatchViaProviderAdapterRuntime('emitir', $service, $url, $payload, $profile);
-        if ($runtime['handled']) {
-            return $runtime['response'];
-        }
+        $previousCurlDebug = $this->setCurlDebugLogging((bool) $debugCurl, [
+            'provider' => $profile?->provedor(),
+            'service' => $service,
+            'operation' => 'emitir',
+            'debug_curl' => $debugCurl,
+        ]);
 
-        return $this->postJsonToUrl($url, $payload);
+        try {
+            $runtime = $this->dispatchViaProviderAdapterRuntime('emitir', $service, $url, $payload, $profile);
+            if ($runtime['handled']) {
+                return $runtime['response'];
+            }
+
+            return $this->postJsonToUrl($url, $payload);
+        } finally {
+            $this->setCurlDebugLogging(
+                (bool) ($previousCurlDebug['enabled'] ?? false),
+                is_array($previousCurlDebug['context'] ?? null) ? $previousCurlDebug['context'] : []
+            );
+        }
     }
 
     /**

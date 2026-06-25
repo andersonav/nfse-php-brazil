@@ -49,8 +49,10 @@ class RestCurl extends RestBase
     public string $responseBody;
     public string $requestBody = '';
     public string $requestXmlBody = '';
-    private string $requestHead;
+    private string $requestHead = '';
     private string $cookies = '';
+    private bool $curlDebugEnabled = false;
+    private array $curlDebugContext = [];
     private array $municipioContext = [];
     private ProviderAdapterRegistry $providerRegistry;
     private ?MunicipioCatalog $catalog = null;
@@ -250,6 +252,19 @@ class RestCurl extends RestBase
             'services_catalog' => $profile->services(),
             'services_supported' => $adapter->supportedServices()
         ];
+    }
+
+    public function setCurlDebugLogging(bool $enabled = false, array $context = []): array
+    {
+        $previous = [
+            'enabled' => $this->curlDebugEnabled,
+            'context' => $this->curlDebugContext,
+        ];
+
+        $this->curlDebugEnabled = $enabled;
+        $this->curlDebugContext = $enabled ? $context : [];
+
+        return $previous;
     }
 
     /**
@@ -559,6 +574,8 @@ class RestCurl extends RestBase
                 "Content-Type: application/json;charset=utf-8;",
                 "Content-length: $msgSize"
             ];
+            $this->requestBody = (string) ($data ?? '');
+            $this->requestHead = implode("\n", $parameters);
             $oCurl = curl_init();
             $api_url = $this->url_api;
             if (strlen($operacao) > 0) {
@@ -611,6 +628,7 @@ class RestCurl extends RestBase
             $contentType = curl_getinfo($oCurl, CURLINFO_CONTENT_TYPE);
             $this->responseHead = trim(substr($response, 0, $headsize));
             $this->responseBody = trim(substr($response, $headsize));
+            $this->emitCurlDebugLog('getData', $api_url, $parameters);
             //detecta redirect, conseguiu logar com certificado na origem 3 e pega cookies
             if ($origem == 3 and $httpcode == 302) {
                 $this->captureCookies($this->responseHead, $origem);
@@ -644,7 +662,8 @@ class RestCurl extends RestBase
                 //                "Content-Type: application/x-www-form-urlencoded;charset=utf-8;",
                 'Content-length: ' . $msgSize,
             ];
-            //            $this->requestHead = implode("\n", $parameters);
+            $this->requestBody = (string) ($data ?? '');
+            $this->requestHead = implode("\n", $parameters);
             $oCurl = curl_init();
             $api_url = $this->url_api;
             if (strlen($operacao) > 0) {
@@ -688,6 +707,7 @@ class RestCurl extends RestBase
             curl_close($oCurl);
             $this->responseHead = trim(substr($response, 0, $headsize));
             $this->responseBody = trim(substr($response, $headsize));
+            $this->emitCurlDebugLog('postData', $api_url, $parameters);
             return json_decode($this->responseBody, true);
         } catch (Exception $e) {
             throw SoapException::unableToLoadCurl($e->getMessage());
@@ -838,6 +858,7 @@ class RestCurl extends RestBase
             if (!$hasContentLength) {
                 $effectiveHeaders[] = 'Content-length: ' . $msgSize;
             }
+            $this->requestHead = implode("\n", $effectiveHeaders);
 
             $oCurl = curl_init();
             curl_setopt($oCurl, CURLOPT_URL, $url);
@@ -878,6 +899,7 @@ class RestCurl extends RestBase
 
             $this->responseHead = trim(substr((string) $response, 0, $headsize));
             $this->responseBody = trim(substr((string) $response, $headsize));
+            $this->emitCurlDebugLog('requestAbsoluteUrl', $url, $effectiveHeaders);
 
             $contentType = strtolower((string) $contentType);
             if (str_contains($contentType, 'application/pdf')) {
@@ -891,5 +913,35 @@ class RestCurl extends RestBase
         } catch (Exception $e) {
             throw SoapException::unableToLoadCurl($e->getMessage());
         }
+    }
+
+    private function emitCurlDebugLog(string $method, string $url, array $headers = []): void
+    {
+        if (!$this->curlDebugEnabled) {
+            return;
+        }
+
+        $context = array_merge($this->curlDebugContext, [
+            'curl_method' => $method,
+            'request_url' => $url,
+            'request_headers' => $headers,
+            'request_head_raw' => $this->requestHead,
+            'request_body' => $this->requestBody,
+            'request_xml_body' => $this->requestXmlBody,
+            'response_headers' => $this->responseHead,
+            'response_body' => $this->responseBody,
+            'curl_info' => $this->soapinfo ?? [],
+            'curl_error' => $this->soaperror ?? '',
+            'curl_errno' => $this->soaperror_code ?? 0,
+        ]);
+
+        if (class_exists(\Illuminate\Support\Facades\Log::class)) {
+            \Illuminate\Support\Facades\Log::debug('NFSe municipal cURL debug', $context);
+            return;
+        }
+
+        error_log(
+            'NFSe municipal cURL debug: ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR)
+        );
     }
 }
