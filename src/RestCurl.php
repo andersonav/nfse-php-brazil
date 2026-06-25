@@ -628,7 +628,7 @@ class RestCurl extends RestBase
             $contentType = curl_getinfo($oCurl, CURLINFO_CONTENT_TYPE);
             $this->responseHead = trim(substr($response, 0, $headsize));
             $this->responseBody = trim(substr($response, $headsize));
-            $this->emitCurlDebugLog('getData', $api_url, $parameters);
+            $this->emitCurlDebugLog('getData', $api_url, $parameters, !empty($data) ? 'POST' : 'GET');
             //detecta redirect, conseguiu logar com certificado na origem 3 e pega cookies
             if ($origem == 3 and $httpcode == 302) {
                 $this->captureCookies($this->responseHead, $origem);
@@ -707,7 +707,7 @@ class RestCurl extends RestBase
             curl_close($oCurl);
             $this->responseHead = trim(substr($response, 0, $headsize));
             $this->responseBody = trim(substr($response, $headsize));
-            $this->emitCurlDebugLog('postData', $api_url, $parameters);
+            $this->emitCurlDebugLog('postData', $api_url, $parameters, 'POST');
             return json_decode($this->responseBody, true);
         } catch (Exception $e) {
             throw SoapException::unableToLoadCurl($e->getMessage());
@@ -899,7 +899,7 @@ class RestCurl extends RestBase
 
             $this->responseHead = trim(substr((string) $response, 0, $headsize));
             $this->responseBody = trim(substr((string) $response, $headsize));
-            $this->emitCurlDebugLog('requestAbsoluteUrl', $url, $effectiveHeaders);
+            $this->emitCurlDebugLog('requestAbsoluteUrl', $url, $effectiveHeaders, $data !== null ? 'POST' : 'GET');
 
             $contentType = strtolower((string) $contentType);
             if (str_contains($contentType, 'application/pdf')) {
@@ -915,7 +915,7 @@ class RestCurl extends RestBase
         }
     }
 
-    private function emitCurlDebugLog(string $method, string $url, array $headers = []): void
+    private function emitCurlDebugLog(string $method, string $url, array $headers = [], string $httpMethod = 'GET'): void
     {
         if (!$this->curlDebugEnabled) {
             return;
@@ -923,6 +923,7 @@ class RestCurl extends RestBase
 
         $context = array_merge($this->curlDebugContext, [
             'curl_method' => $method,
+            'http_method' => strtoupper($httpMethod),
             'request_url' => $url,
             'request_headers' => $headers,
             'request_head_raw' => $this->requestHead,
