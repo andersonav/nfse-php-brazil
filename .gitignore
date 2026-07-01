@@ -5,3 +5,4 @@ examples/certs/
 examples/local/
 nfse-servicos.ini
 .phpunit.cache/
+.agents
