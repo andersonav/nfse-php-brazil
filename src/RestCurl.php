@@ -921,19 +921,66 @@ class RestCurl extends RestBase
             return;
         }
 
+        $curlInfo = $this->soapinfo ?? [];
+        $requestBody = $this->requestBody;
+        $certPath = $this->tempdir . $this->certfile;
+        $keyPath = $this->tempdir . $this->prifile;
+        $isPost = strtoupper($httpMethod) === 'POST';
+
         $context = array_merge($this->curlDebugContext, [
             'curl_method' => $method,
             'http_method' => strtoupper($httpMethod),
             'request_url' => $url,
             'request_headers' => $headers,
             'request_head_raw' => $this->requestHead,
-            'request_body' => $this->requestBody,
+            'request_body' => $requestBody,
+            'request_body_size' => strlen($requestBody),
             'request_xml_body' => $this->requestXmlBody,
+            'request_xml_body_size' => strlen($this->requestXmlBody),
             'response_headers' => $this->responseHead,
             'response_body' => $this->responseBody,
-            'curl_info' => $this->soapinfo ?? [],
+            'response_body_size' => strlen($this->responseBody),
+            'content_type' => $curlInfo['content_type'] ?? null,
+            'http_code' => $curlInfo['http_code'] ?? null,
+            'header_size' => $curlInfo['header_size'] ?? null,
+            'request_size' => $curlInfo['request_size'] ?? null,
+            'size_upload' => $curlInfo['size_upload'] ?? null,
+            'size_download' => $curlInfo['size_download'] ?? null,
+            'total_time' => $curlInfo['total_time'] ?? null,
+            'namelookup_time' => $curlInfo['namelookup_time'] ?? null,
+            'connect_time' => $curlInfo['connect_time'] ?? null,
+            'appconnect_time' => $curlInfo['appconnect_time'] ?? null,
+            'pretransfer_time' => $curlInfo['pretransfer_time'] ?? null,
+            'starttransfer_time' => $curlInfo['starttransfer_time'] ?? null,
+            'primary_ip' => $curlInfo['primary_ip'] ?? null,
+            'primary_port' => $curlInfo['primary_port'] ?? null,
+            'local_ip' => $curlInfo['local_ip'] ?? null,
+            'local_port' => $curlInfo['local_port'] ?? null,
+            'redirect_count' => $curlInfo['redirect_count'] ?? null,
+            'redirect_url' => $curlInfo['redirect_url'] ?? null,
+            'ssl_verify_result' => $curlInfo['ssl_verify_result'] ?? null,
             'curl_error' => $this->soaperror ?? '',
             'curl_errno' => $this->soaperror_code ?? 0,
+            'curl_info' => $curlInfo,
+            'curl_options' => [
+                'CURLOPT_URL' => $url,
+                'CURLOPT_IPRESOLVE' => 'CURL_IPRESOLVE_V4',
+                'CURLOPT_CONNECTTIMEOUT' => $this->connection_timeout,
+                'CURLOPT_TIMEOUT' => $this->timeout,
+                'CURLOPT_HEADER' => 1,
+                'CURLOPT_HTTP_VERSION' => $this->httpver,
+                'CURLOPT_SSL_VERIFYHOST' => 0,
+                'CURLOPT_SSL_VERIFYPEER' => 0,
+                'CURLOPT_SSL_CIPHER_LIST' => $this->security_level ?: null,
+                'CURLOPT_SSLVERSION' => 'CURL_SSLVERSION_DEFAULT',
+                'CURLOPT_SSLCERT' => $certPath,
+                'CURLOPT_SSLKEY' => $keyPath,
+                'CURLOPT_KEYPASSWD_CONFIGURADO' => !empty($this->temppass),
+                'CURLOPT_RETURNTRANSFER' => 1,
+                'CURLOPT_POST' => $isPost ? 1 : 0,
+                'CURLOPT_POSTFIELDS' => $isPost ? $requestBody : null,
+                'CURLOPT_HTTPHEADER' => $headers,
+            ],
         ]);
 
         if (class_exists(\Illuminate\Support\Facades\Log::class)) {
