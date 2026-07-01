@@ -12,7 +12,9 @@ class RestBase
 {
     protected $certificate;
     protected $disableCertValidation = false;
+    protected $security_level = '';
     protected $tempdir;
+    protected $temppass = '';
     private Files $filesystem;
     private string $certsdir;
     protected $prifile;
