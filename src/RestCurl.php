@@ -983,13 +983,15 @@ class RestCurl extends RestBase
             ],
         ]);
 
+        $encodedContext = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+
         if (class_exists(\Illuminate\Support\Facades\Log::class)) {
-            \Illuminate\Support\Facades\Log::debug('NFSe municipal cURL debug', $context);
+            \Illuminate\Support\Facades\Log::debug('NFSe municipal cURL debug: ' . $encodedContext);
             return;
         }
 
         error_log(
-            'NFSe municipal cURL debug: ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR)
+            'NFSe municipal cURL debug: ' . $encodedContext
         );
     }
 }
