@@ -24,6 +24,7 @@ trait ToolsProviderBuilderSpeedGovTrait
         $ident = is_array($first['identificacao'] ?? null) ? $first['identificacao'] : [];
         $prestador = is_array($first['prestador'] ?? null) ? $first['prestador'] : [];
         $tomador = is_array($first['tomador'] ?? null) ? $first['tomador'] : [];
+        $intermediario = is_array($first['intermediario'] ?? null) ? $first['intermediario'] : [];
         $servico = is_array($first['servico'] ?? null) ? $first['servico'] : [];
         $controleIbscbs = is_array($first['controle_ibscbs'] ?? null) ? $first['controle_ibscbs'] : [];
         $ibscbs = is_array($first['ibscbs'] ?? null) ? $first['ibscbs'] : [];
@@ -94,6 +95,11 @@ trait ToolsProviderBuilderSpeedGovTrait
         $incentivadorCultural = (int) ($first['incentivador_cultural'] ?? 2);
         $status = (int) ($first['status'] ?? 1);
 
+        $valor = static function (array $source, string $key, float $default = 0): float {
+            $raw = str_replace(',', '.', trim((string) ($source[$key] ?? '')));
+            return $raw === '' || !is_numeric($raw) ? $default : (float) $raw;
+        };
+
         // SpeedGov costuma validar schema/campos com codigos apenas numericos.
         $itemListaServico = preg_replace('/\D+/', '', $itemListaServico) ?: '';
         $codigoCnae = preg_replace('/\D+/', '', $codigoCnae) ?: '';
@@ -109,11 +115,20 @@ trait ToolsProviderBuilderSpeedGovTrait
         $aliquotaNormalizada = $servicoAliquota > 1 ? ($servicoAliquota / 100) : $servicoAliquota;
         $values = [
             'servico_valor' => number_format($servicoValor, 2, '.', ''),
-            'iss_valor' => number_format($servicoValor * ($aliquotaNormalizada > 0 ? $aliquotaNormalizada : 0), 2, '.', ''),
+            'deducoes' => number_format($valor($servico, 'valor_deducoes'), 2, '.', ''),
+            'pis' => number_format($valor($servico, 'valor_pis'), 2, '.', ''),
+            'cofins' => number_format($valor($servico, 'valor_cofins'), 2, '.', ''),
+            'inss' => number_format($valor($servico, 'valor_inss'), 2, '.', ''),
+            'ir' => number_format($valor($servico, 'valor_ir'), 2, '.', ''),
+            'csll' => number_format($valor($servico, 'valor_csll'), 2, '.', ''),
+            'iss_valor' => number_format($valor($servico, 'valor_iss', $servicoValor * max(0, $aliquotaNormalizada)), 2, '.', ''),
             'aliquota' => number_format($servicoAliquota, 4, '.', ''),
-            'base_calculo' => number_format($servicoValor, 2, '.', ''),
-            'valor_iss_retido' => number_format($issRetido === 1 ? ($servicoValor * ($aliquotaNormalizada > 0 ? $aliquotaNormalizada : 0)) : 0, 2, '.', ''),
-            'valor_liquido_nfse' => number_format($servicoValor, 2, '.', ''),
+            'base_calculo' => number_format($valor($servico, 'base_calculo', $servicoValor), 2, '.', ''),
+            'valor_iss_retido' => number_format($valor($servico, 'valor_iss_retido', $issRetido === 1 ? $servicoValor * max(0, $aliquotaNormalizada) : 0), 2, '.', ''),
+            'outras_retencoes' => number_format($valor($servico, 'outras_retencoes'), 2, '.', ''),
+            'valor_liquido_nfse' => number_format($valor($servico, 'valor_liquido_nfse', $servicoValor), 2, '.', ''),
+            'desconto_condicionado' => number_format($valor($servico, 'desconto_condicionado'), 2, '.', ''),
+            'desconto_incondicionado' => number_format($valor($servico, 'desconto_incondicionado'), 2, '.', ''),
         ];
 
         $cabecalhoXml = '<p:cabecalho versao="1" xmlns:p="http://ws.speedgov.com.br/cabecalho_v1.xsd">'
@@ -193,12 +208,15 @@ trait ToolsProviderBuilderSpeedGovTrait
         $controleIbscbsXml = '';
         if ($hasAny($controleIbscbs)) {
             $controleIbscbsXml = '<ControleIBSCBS>'
-                . (trim((string) ($controleIbscbs['fin_nfse'] ?? '')) !== '' ? '<FinNFSe>' . $this->xmlValue((string) $controleIbscbs['fin_nfse']) . '</FinNFSe>' : '')
-                . (trim((string) ($controleIbscbs['ind_final'] ?? '')) !== '' ? '<IndFinal>' . $this->xmlValue((string) $controleIbscbs['ind_final']) . '</IndFinal>' : '')
-                . (trim((string) ($controleIbscbs['tp_oper'] ?? '')) !== '' ? '<TpOper>' . $this->xmlValue((string) $controleIbscbs['tp_oper']) . '</TpOper>' : '')
-                . (trim((string) ($controleIbscbs['tp_ente_gov'] ?? '')) !== '' ? '<TpEnteGov>' . $this->xmlValue((string) $controleIbscbs['tp_ente_gov']) . '</TpEnteGov>' : '')
-                . (trim((string) ($controleIbscbs['ind_dest'] ?? '')) !== '' ? '<IndDest>' . $this->xmlValue((string) $controleIbscbs['ind_dest']) . '</IndDest>' : '')
-                . (trim((string) ($controleIbscbs['c_ind_op'] ?? '')) !== '' ? '<CIndOp>' . $this->xmlValue((string) $controleIbscbs['c_ind_op']) . '</CIndOp>' : '')
+                . (trim((string) ($controleIbscbs['fin_nfse'] ?? '')) !== '' ? '<finNFSe>' . $this->xmlValue((string) $controleIbscbs['fin_nfse']) . '</finNFSe>' : '')
+                . (trim((string) ($controleIbscbs['ind_final'] ?? '')) !== '' ? '<indFinal>' . $this->xmlValue((string) $controleIbscbs['ind_final']) . '</indFinal>' : '')
+                . (trim((string) ($controleIbscbs['tp_oper'] ?? '')) !== '' ? '<tpOper>' . $this->xmlValue((string) $controleIbscbs['tp_oper']) . '</tpOper>' : '')
+                . (trim((string) ($controleIbscbs['tp_ente_gov'] ?? '')) !== '' ? '<tpEnteGov>' . $this->xmlValue((string) $controleIbscbs['tp_ente_gov']) . '</tpEnteGov>' : '')
+                . (trim((string) ($controleIbscbs['ind_dest'] ?? '')) !== '' ? '<indDest>' . $this->xmlValue((string) $controleIbscbs['ind_dest']) . '</indDest>' : '')
+                . (trim((string) ($controleIbscbs['c_ind_op'] ?? '')) !== '' ? '<cIndOp>' . $this->xmlValue((string) $controleIbscbs['c_ind_op']) . '</cIndOp>' : '')
+                . (($v = $limitText((string) ($controleIbscbs['x_tp_ente_gov'] ?? ''), 2000)) !== '' ? '<XTpEnteGov>' . $this->xmlValue($v) . '</XTpEnteGov>' : '')
+                . (($v = $limitText((string) ($controleIbscbs['cst'] ?? ''), 3)) !== '' ? '<CST>' . $this->xmlValue($v) . '</CST>' : '')
+                . (($v = $limitText((string) ($controleIbscbs['c_class_trib'] ?? ''), 6)) !== '' ? '<cClassTrib>' . $this->xmlValue($v) . '</cClassTrib>' : '')
                 . '</ControleIBSCBS>';
         }
 
@@ -212,10 +230,22 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . (($v = $onlyDecimal((string) ($ibscbs['ibs_uf_valor'] ?? ''), 2)) !== '' ? '<IBSUFValor>' . $this->xmlValue($v) . '</IBSUFValor>' : '')
                 . (($v = $onlyDecimal((string) ($ibscbs['ibs_mun_valor'] ?? ''), 2)) !== '' ? '<IBSMunValor>' . $this->xmlValue($v) . '</IBSMunValor>' : '')
                 . (($v = $onlyDecimal((string) ($ibscbs['cbs_valor'] ?? ''), 2)) !== '' ? '<CBSValor>' . $this->xmlValue($v) . '</CBSValor>' : '')
+                . $this->buildSpeedGovDecimalElements($ibscbs, [
+                    'ibs_uf_perc_reducao' => 'IBSUFPercReducao', 'ibs_mun_perc_reducao' => 'IBSMunPercReducao',
+                    'cbs_perc_reducao' => 'CBSPercReducao', 'ibs_uf_aliquota_efetiva' => 'IBSUFAliquotaEfetiva',
+                    'ibs_mun_aliquota_efetiva' => 'IBSMunAliquotaEfetiva', 'cbs_aliquota_efetiva' => 'CBSAliquotaEfetiva',
+                    'ibs_uf_perc_diferimento' => 'IBSUFPercDiferimento', 'ibs_mun_perc_diferimento' => 'IBSMunPercDiferimento',
+                    'cbs_perc_diferimento' => 'CBSPercDiferimento', 'ibs_uf_valor_diferido' => 'IBSUFValorDiferido',
+                    'ibs_mun_valor_diferido' => 'IBSMunValorDiferido', 'cbs_valor_diferido' => 'CBSValorDiferido',
+                    'ibs_credito_presumido_aliq' => 'IBSCreditoPresumidoAliq', 'ibs_credito_presumido_valor' => 'IBSCreditoPresumidoValor',
+                    'cbs_credito_presumido_aliq' => 'CBSCreditoPresumidoAliq', 'cbs_credito_presumido_valor' => 'CBSCreditoPresumidoValor',
+                ])
                 . (($v = $onlyDecimal((string) ($ibscbs['ibs_valor_total'] ?? ''), 2)) !== '' ? '<IBSValorTotal>' . $this->xmlValue($v) . '</IBSValorTotal>' : '')
                 . (($v = $onlyDecimal((string) ($ibscbs['valor_total_com_tributos'] ?? ''), 2)) !== '' ? '<ValorTotalComTributos>' . $this->xmlValue($v) . '</ValorTotalComTributos>' : '')
+                . (($v = $onlyDecimal((string) ($ibscbs['ibs_valor_reembolso'] ?? ''), 2)) !== '' ? '<IBSValorReembolso>' . $this->xmlValue($v) . '</IBSValorReembolso>' : '')
                 . (($v = $onlyDigits((string) ($ibscbs['localidade_incidencia_cod'] ?? ''), 7)) !== '' ? '<LocalidadeIncidenciaCod>' . $this->xmlValue($v) . '</LocalidadeIncidenciaCod>' : '')
                 . (($v = $limitText((string) ($ibscbs['localidade_incidencia_nome'] ?? ''), 2000)) !== '' ? '<LocalidadeIncidenciaNome>' . $this->xmlValue($v) . '</LocalidadeIncidenciaNome>' : '')
+                . (($v = $onlyDecimal((string) ($ibscbs['perc_redutor_compra_gov'] ?? ''), 2)) !== '' ? '<PercRedutorCompraGov>' . $this->xmlValue($v) . '</PercRedutorCompraGov>' : '')
                 . '</IBSCBS>';
         }
 
@@ -225,7 +255,7 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . (($v = $onlyDigits((string) ($dadosDps['tp_emit'] ?? ''), 1)) !== '' ? '<TpEmit>' . $this->xmlValue($v) . '</TpEmit>' : '')
                 . (($v = $onlyDigits((string) ($dadosDps['tp_amb'] ?? ''), 1)) !== '' ? '<TpAmb>' . $this->xmlValue($v) . '</TpAmb>' : '')
                 . (($v = $limitText((string) ($dadosDps['dh_emi'] ?? ''), 25)) !== '' ? '<DhEmi>' . $this->xmlValue($v) . '</DhEmi>' : '')
-                . (($v = $limitText((string) ($dadosDps['ver_aplic'] ?? ''), 20)) !== '' ? '<VerAplic>' . $this->xmlValue($v) . '</VerAplic>' : '')
+                . (($v = $limitText((string) ($dadosDps['ver_aplic'] ?? ''), 50)) !== '' ? '<VerAplic>' . $this->xmlValue($v) . '</VerAplic>' : '')
                 . (($v = $onlyDigits((string) ($dadosDps['c_loc_emi'] ?? ''), 7)) !== '' ? '<CLocEmi>' . $this->xmlValue($v) . '</CLocEmi>' : '')
                 . (($v = $onlyDigits((string) ($dadosDps['c_loc_prestacao'] ?? ''), 7)) !== '' ? '<CLocPrestacao>' . $this->xmlValue($v) . '</CLocPrestacao>' : '')
                 . (($v = $limitText((string) ($dadosDps['c_trib_nac'] ?? ''), 6)) !== '' ? '<CTribNac>' . $this->xmlValue($v) . '</CTribNac>' : '')
@@ -234,6 +264,9 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . (($v = $onlyDigits((string) ($dadosDps['op_simp_nac'] ?? ''), 1)) !== '' ? '<OpSimpNac>' . $this->xmlValue($v) . '</OpSimpNac>' : '')
                 . (($v = $onlyDigits((string) ($dadosDps['reg_esp_trib'] ?? ''), 1)) !== '' ? '<RegEspTrib>' . $this->xmlValue($v) . '</RegEspTrib>' : '')
                 . (($v = $onlyDigits((string) ($dadosDps['reg_ap_trib_sn'] ?? ''), 1)) !== '' ? '<RegApTribSN>' . $this->xmlValue($v) . '</RegApTribSN>' : '')
+                . (($v = $onlyDigits((string) ($dadosDps['serie'] ?? ''), 0)) !== '' ? '<serie>' . $this->xmlValue($v) . '</serie>' : '')
+                . (($v = $onlyDigits((string) ($dadosDps['numero'] ?? $dadosDps['n_dps'] ?? ''), 0)) !== '' ? '<nDPS>' . $this->xmlValue($v) . '</nDPS>' : '')
+                . (($v = $limitText((string) ($dadosDps['data_competencia'] ?? $dadosDps['d_compet'] ?? ''), 10)) !== '' ? '<dCompet>' . $this->xmlValue($v) . '</dCompet>' : '')
                 . '</DadosDPS>';
         }
 
@@ -285,10 +318,10 @@ trait ToolsProviderBuilderSpeedGovTrait
         $beneficioMunicipalXml = '';
         if ($hasAny($beneficioMunicipal)) {
             $beneficioMunicipalXml = '<BeneficioMunicipal>'
-                . (($v = $onlyDigits((string) ($beneficioMunicipal['tp_bm'] ?? ''), 1)) !== '' ? '<TpBM>' . $this->xmlValue($v) . '</TpBM>' : '')
-                . (($v = $limitText((string) ($beneficioMunicipal['n_bm'] ?? ''), 14)) !== '' ? '<NBM>' . $this->xmlValue($v) . '</NBM>' : '')
-                . (($v = $onlyDecimal((string) ($beneficioMunicipal['v_red_bcbm'] ?? ''), 2)) !== '' ? '<VRedBCBM>' . $this->xmlValue($v) . '</VRedBCBM>' : '')
-                . (($v = $onlyDecimal((string) ($beneficioMunicipal['p_red_bcbm'] ?? ''), 2)) !== '' ? '<PRedBCBM>' . $this->xmlValue($v) . '</PRedBCBM>' : '')
+                . (($v = $onlyDigits((string) ($beneficioMunicipal['tp_bm'] ?? $beneficioMunicipal['tp_beneficio'] ?? ''), 1)) !== '' ? '<TpBM>' . $this->xmlValue($v) . '</TpBM>' : '')
+                . (($v = $limitText((string) ($beneficioMunicipal['n_bm'] ?? $beneficioMunicipal['n_beneficio'] ?? ''), 14)) !== '' ? '<NBM>' . $this->xmlValue($v) . '</NBM>' : '')
+                . (($v = $onlyDecimal((string) ($beneficioMunicipal['v_red_bcbm'] ?? $beneficioMunicipal['v_red_bc_beneficio'] ?? ''), 2)) !== '' ? '<VRedBCBM>' . $this->xmlValue($v) . '</VRedBCBM>' : '')
+                . (($v = $onlyDecimal((string) ($beneficioMunicipal['p_red_bcbm'] ?? $beneficioMunicipal['p_red_bc_beneficio'] ?? ''), 2)) !== '' ? '<PRedBCBM>' . $this->xmlValue($v) . '</PRedBCBM>' : '')
                 . '</BeneficioMunicipal>';
         }
 
@@ -322,6 +355,19 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . '</Destinatario>';
         }
 
+        $intermediarioXml = '';
+        if ($hasAny($intermediario)) {
+            $documento = $onlyDigits((string) ($intermediario['documento'] ?? ''), 14);
+            $documentoXml = $documento === '' ? '' : (strlen($documento) <= 11
+                ? '<Cpf>' . $this->xmlValue($documento) . '</Cpf>'
+                : '<Cnpj>' . $this->xmlValue($documento) . '</Cnpj>');
+            $intermediarioXml = '<IntermediarioServico>'
+                . (($v = $limitText((string) ($intermediario['nome_razao_social'] ?? ''), 115)) !== '' ? '<RazaoSocial>' . $this->xmlValue($v) . '</RazaoSocial>' : '')
+                . ($documentoXml !== '' ? '<CpfCnpj>' . $documentoXml . '</CpfCnpj>' : '')
+                . (($v = $limitText((string) ($intermediario['inscricao_municipal'] ?? ''), 15)) !== '' ? '<InscricaoMunicipal>' . $this->xmlValue($v) . '</InscricaoMunicipal>' : '')
+                . '</IntermediarioServico>';
+        }
+
         $dadosXml = ''
             . '<EnviarLoteRpsEnvio xmlns="http://ws.speedgov.com.br/enviar_lote_rps_envio_v1.xsd">'
             . '<LoteRps xmlns="" Id="' . $this->xmlAttr('LOTE' . $loteNumero) . '">'
@@ -346,24 +392,31 @@ trait ToolsProviderBuilderSpeedGovTrait
             . '<Servico>'
             . '<Valores>'
             . '<ValorServicos>' . $values['servico_valor'] . '</ValorServicos>'
-            . '<ValorPis>0.00</ValorPis>'
-            . '<ValorCofins>0.00</ValorCofins>'
-            . '<ValorInss>0.00</ValorInss>'
-            . '<ValorIr>0.00</ValorIr>'
-            . '<ValorCsll>0.00</ValorCsll>'
+            . '<ValorDeducoes>' . $values['deducoes'] . '</ValorDeducoes>'
+            . '<ValorPis>' . $values['pis'] . '</ValorPis>'
+            . '<ValorCofins>' . $values['cofins'] . '</ValorCofins>'
+            . '<ValorInss>' . $values['inss'] . '</ValorInss>'
+            . '<ValorIr>' . $values['ir'] . '</ValorIr>'
+            . '<ValorCsll>' . $values['csll'] . '</ValorCsll>'
             . '<IssRetido>' . $this->xmlValue((string) $issRetido) . '</IssRetido>'
             . '<ValorIss>' . $values['iss_valor'] . '</ValorIss>'
             . '<ValorIssRetido>' . $values['valor_iss_retido'] . '</ValorIssRetido>'
+            . '<OutrasRetencoes>' . $values['outras_retencoes'] . '</OutrasRetencoes>'
             . '<BaseCalculo>' . $values['base_calculo'] . '</BaseCalculo>'
             . '<Aliquota>' . $values['aliquota'] . '</Aliquota>'
             . '<ValorLiquidoNfse>' . $values['valor_liquido_nfse'] . '</ValorLiquidoNfse>'
-            . '<DescontoIncondicionado>0.00</DescontoIncondicionado>'
+            . '<DescontoCondicionado>' . $values['desconto_condicionado'] . '</DescontoCondicionado>'
+            . '<DescontoIncondicionado>' . $values['desconto_incondicionado'] . '</DescontoIncondicionado>'
+            . $this->buildSpeedGovOptionalValues($servico)
             . '</Valores>'
             . '<ItemListaServico>' . $this->xmlValue($itemListaServico) . '</ItemListaServico>'
             . '<CodigoCnae>' . $this->xmlValue($codigoCnae) . '</CodigoCnae>'
             . ($codigoTributacaoMunicipio !== '' ? '<CodigoTributacaoMunicipio>' . $this->xmlValue($codigoTributacaoMunicipio) . '</CodigoTributacaoMunicipio>' : '')
             . '<Discriminacao>' . $this->xmlValue($servicoDesc) . '</Discriminacao>'
             . '<CodigoMunicipio>' . $this->xmlValue($codigoMunicipio) . '</CodigoMunicipio>'
+            . (($v = $limitText((string) ($servico['codigo_nbs'] ?? $servico['c_nbs'] ?? ''), 30)) !== '' ? '<cNBS>' . $this->xmlValue($v) . '</cNBS>' : '')
+            . (($v = $limitText((string) ($servico['descricao_servico'] ?? $servico['x_desc_serv'] ?? ''), 2000)) !== '' ? '<xDescServ>' . $this->xmlValue($v) . '</xDescServ>' : '')
+            . (($v = $limitText((string) ($servico['codigo_interno'] ?? $servico['c_int_contrib'] ?? ''), 255)) !== '' ? '<cIntContrib>' . $this->xmlValue($v) . '</cIntContrib>' : '')
             . '</Servico>'
             . '<Prestador>'
             . '<Cnpj>' . $this->xmlValue($prestadorCnpj) . '</Cnpj>'
@@ -380,8 +433,7 @@ trait ToolsProviderBuilderSpeedGovTrait
             . $tomadorEnderecoXml
             . $tomadorContatoXml
             . '</Tomador>'
-            . $controleIbscbsXml
-            . $ibscbsXml
+            . $intermediarioXml
             . $dadosDpsXml
             . $dadosObraXml
             . $comercioExteriorXml
@@ -389,6 +441,8 @@ trait ToolsProviderBuilderSpeedGovTrait
             . $beneficioMunicipalXml
             . $reembolsoRepasseXml
             . $destinatarioXml
+            . $controleIbscbsXml
+            . $ibscbsXml
             . ($dataCompetencia !== '' ? '<DataCompetencia>' . $this->xmlValue($limitText($dataCompetencia, 10)) . '</DataCompetencia>' : '')
             . '</InfRps>'
             . '</Rps>'
@@ -410,6 +464,49 @@ trait ToolsProviderBuilderSpeedGovTrait
             . '</nfse:RecepcionarLoteRps>'
             . '</soapenv:Body>'
             . '</soapenv:Envelope>';
+    }
+
+    /** @param array<string,mixed> $values @param array<string,string> $mapping */
+    private function buildSpeedGovDecimalElements(array $values, array $mapping): string
+    {
+        $xml = '';
+        foreach ($mapping as $key => $tag) {
+            $value = str_replace(',', '.', trim((string) ($values[$key] ?? '')));
+            if ($value !== '' && preg_match('/^-?\d+(\.\d+)?$/', $value)) {
+                $xml .= '<' . $tag . '>' . $this->xmlValue(number_format((float) $value, 2, '.', '')) . '</' . $tag . '>';
+            }
+        }
+        return $xml;
+    }
+
+    /** @param array<string,mixed> $servico */
+    private function buildSpeedGovOptionalValues(array $servico): string
+    {
+        $element = function (string $tag, mixed $value, bool $decimal = false): string {
+            $value = str_replace(',', '.', trim((string) $value));
+            if ($value === '' || ($decimal && !preg_match('/^-?\d+(\.\d+)?$/', $value))) {
+                return '';
+            }
+            if ($decimal) {
+                $value = number_format((float) $value, 4, '.', '');
+            }
+            return '<' . $tag . '>' . $this->xmlValue($value) . '</' . $tag . '>';
+        };
+        $first = static fn (array $source, array $keys): mixed => array_reduce(
+            $keys,
+            static fn ($carry, $key) => $carry !== null && trim((string) $carry) !== '' ? $carry : ($source[$key] ?? null),
+            null
+        );
+
+        // A ordem é significativa no xsd:sequence de tcValores.
+        return $element('CSTPisCofins', $servico['cst_pis_cofins'] ?? '')
+            . $element('BaseCalculoPisCofins', $servico['base_calculo_pis_cofins'] ?? '', true)
+            . $element('TipoRetencaoPisCofins', $servico['tipo_retencao_pis_cofins'] ?? '')
+            . $element('AliqPis', $first($servico, ['aliquota_pis', 'aliq_pis']), true)
+            . $element('AliqCofins', $first($servico, ['aliquota_cofins', 'aliq_cofins']), true)
+            . $element('pTotTribFed', $first($servico, ['percentual_total_tributos_federais', 'p_tot_trib_fed']), true)
+            . $element('pTotTribEst', $first($servico, ['percentual_total_tributos_estaduais', 'p_tot_trib_est']), true)
+            . $element('pTotTribMun', $first($servico, ['percentual_total_tributos_municipais', 'p_tot_trib_mun']), true);
     }
 
     /**
@@ -454,8 +551,10 @@ trait ToolsProviderBuilderSpeedGovTrait
         $rpsTipo = trim((string) ($data['rps_tipo'] ?? $data['tipo_rps'] ?? '1'));
         $numeroNfse = trim((string) ($data['numero_nfse'] ?? $data['nfse_numero'] ?? ''));
         $codigoMunicipio = preg_replace('/\D+/', '', (string) ($data['codigo_municipio'] ?? '')) ?: '';
-        $codigoCancelamento = preg_replace('/\D+/', '', (string) ($data['codigo_cancelamento'] ?? '1')) ?: '1';
-        $motivoCancelamento = trim((string) ($data['motivo'] ?? $data['motivo_cancelamento'] ?? ''));
+        $codigoCancelamento = mb_substr(trim((string) ($data['codigo_cancelamento'] ?? '1')), 0, 4);
+        if ($codigoCancelamento === '') {
+            $codigoCancelamento = '1';
+        }
 
         if (in_array($normalized, ['consultar_nfse_rps', 'consultar_nf_se_rps'], true)) {
             return '<ConsultarNfseRpsEnvio xmlns="http://ws.speedgov.com.br/consultar_nfse_rps_envio_v1.xsd">'
@@ -496,7 +595,7 @@ trait ToolsProviderBuilderSpeedGovTrait
                 throw new RuntimeException('Cancelamento SpeedGov requer numero_nfse, prestador_cnpj e codigo_municipio.');
             }
             $id = $numeroNfse !== '' ? ('cancel' . preg_replace('/\D+/', '', $numeroNfse)) : ('cancel' . date('YmdHis'));
-            return '<CancelarNfseEnvio xmlns="http://ws.speedgov.com.br/cancelar_nfse_envio_v1.xsd">'
+            $cancelamentoXml = '<CancelarNfseEnvio xmlns="http://ws.speedgov.com.br/cancelar_nfse_envio_v1.xsd">'
                 . '<Pedido xmlns="">'
                 . '<InfPedidoCancelamento Id="' . $this->xmlAttr($id) . '">'
                 . '<IdentificacaoNfse>'
@@ -509,6 +608,8 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . '</InfPedidoCancelamento>'
                 . '</Pedido>'
                 . '</CancelarNfseEnvio>';
+
+            return $this->sign($cancelamentoXml, 'InfPedidoCancelamento', 'Id', 'Pedido');
         }
 
         return $this->buildAbrasfDataForMethod($data, $service);
