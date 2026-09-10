@@ -90,7 +90,8 @@ trait ToolsProviderBuilderSpeedGovTrait
         $naturezaOperacao = (int) ($first['natureza_operacao'] ?? 1);
         $regimeEspecialTributacaoRaw = $first['regime_especial_tributacao'] ?? null;
         $regimeEspecialTributacao = (int) ($regimeEspecialTributacaoRaw ?? 0);
-        $hasRegimeEspecialTributacao = $regimeEspecialTributacaoRaw !== null && trim((string) $regimeEspecialTributacaoRaw) !== '';
+        // O XSD aceita somente 1..6. Ausência de regime deve omitir a tag; zero é inválido.
+        $hasRegimeEspecialTributacao = $regimeEspecialTributacao >= 1 && $regimeEspecialTributacao <= 6;
         $optanteSimples = (int) ($first['optante_simples_nacional'] ?? 2);
         $incentivadorCultural = (int) ($first['incentivador_cultural'] ?? 2);
         $status = (int) ($first['status'] ?? 1);

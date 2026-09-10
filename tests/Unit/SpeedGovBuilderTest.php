@@ -103,4 +103,14 @@ final class SpeedGovBuilderTest extends TestCase
 
         self::assertStringContainsString('<CodigoCancelamento>E12</CodigoCancelamento>', $xml);
     }
+
+    public function testOmiteRegimeEspecialZeroPorqueNaoPertenceAoDominioDoXsd(): void
+    {
+        $payload = $this->payload();
+        $payload['rps'][0]['regime_especial_tributacao'] = '0';
+
+        $xml = html_entity_decode($this->builder()->build($payload), ENT_QUOTES | ENT_XML1, 'UTF-8');
+
+        self::assertStringNotContainsString('<RegimeEspecialTributacao>', $xml);
+    }
 }
