@@ -1,0 +1,15 @@
+{
+  "validar_schema": true,
+  "lote": {"numero_lote": "3"},
+  "rps": [{
+    "identificacao": {"numero": "8113", "serie": "1", "tipo": "1"},
+    "data_emissao": "2026-10-30T10:00:00",
+    "prestador": {"cnpj": "13743550000657", "inscricao_municipal": "102019"},
+    "tomador": {"documento": "59176608000114", "nome_razao_social": "Tomador de teste"},
+    "servico": {"valor_servicos": "1000.00", "aliquota": "5.00", "iss_retido": "2", "item_lista_servico": "1.06", "codigo_cnae": "6204000", "discriminacao": "Serviços de teste", "codigo_municipio": "2307650", "codigo_nbs": "1.1501.20.00", "cst_pis_cofins": "01", "base_calculo_pis_cofins": "1000.00", "tipo_retencao_pis_cofins": "3", "aliquota_pis": "1.65", "aliquota_cofins": "7.60"},
+    "dados_dps": {"tp_emit": "1", "tp_amb": "2", "dh_emi": "2026-10-30T10:00:00", "ver_aplic": "GCWebTest", "c_loc_emi": "2307650", "c_loc_prestacao": "2307650", "c_trib_nac": "010601", "serie": "1", "numero": "8113", "data_competencia": "2026-10-30"},
+    "controle_ibscbs": {"fin_nfse": "0", "ind_final": "1", "ind_dest": "0", "c_ind_op": "100301", "cst": "200", "c_class_trib": "200001", "tp_oper": "1", "tp_ente_gov": "4"},
+    "ibscbs": {"base_calculo": "950.00", "ibs_uf_aliquota": "0.10", "ibs_mun_aliquota": "0.00", "cbs_aliquota": "0.90", "ibs_uf_valor": "0.38", "ibs_mun_valor": "0.00", "cbs_valor": "3.42", "ibs_uf_perc_reducao": "60.00", "ibs_mun_perc_reducao": "60.00", "cbs_perc_reducao": "60.00", "ibs_uf_aliquota_efetiva": "0.04", "ibs_mun_aliquota_efetiva": "0.00", "cbs_aliquota_efetiva": "0.36", "ibs_uf_perc_diferimento": "50.00", "ibs_uf_valor_diferido": "0.19", "ibs_credito_presumido_aliq": "1.00", "ibs_credito_presumido_valor": "9.50", "cbs_credito_presumido_aliq": "1.00", "cbs_credito_presumido_valor": "9.50", "ibs_valor_total": "0.38", "valor_total_com_tributos": "1000.00", "ibs_valor_reembolso": "0.00", "localidade_incidencia_cod": "2307650", "localidade_incidencia_nome": "Maracanaú", "perc_redutor_compra_gov": "0.00"},
+    "data_competencia": "2026-10-30"
+  }]
+}

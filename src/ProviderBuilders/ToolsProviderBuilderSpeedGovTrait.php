@@ -369,6 +369,14 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . '</IntermediarioServico>';
         }
 
+        foreach ($ibscbs as $key => $value) {
+            if (str_contains($key, 'aliquota') || str_contains($key, 'perc_')) {
+                if (abs((float) $value - round((float) $value, 2)) > 0.000001) {
+                    throw new RuntimeException('Percentual incompatível com a precisão de duas casas do XSD SpeedGov: ' . $key);
+                }
+            }
+        }
+
         $dadosXml = ''
             . '<EnviarLoteRpsEnvio xmlns="http://ws.speedgov.com.br/enviar_lote_rps_envio_v1.xsd">'
             . '<LoteRps xmlns="" Id="' . $this->xmlAttr('LOTE' . $loteNumero) . '">'
@@ -450,6 +458,15 @@ trait ToolsProviderBuilderSpeedGovTrait
             . '</ListaRps>'
             . '</LoteRps>'
             . '</EnviarLoteRpsEnvio>';
+
+        if (!empty($data['validar_schema'])) {
+            // Nomes no contrato SOAP publicado; não confundir com a capitalização do XML nacional.
+            foreach (['finNFSe' => 'FinNFSe', 'indFinal' => 'IndFinal', 'tpOper' => 'TpOper',
+                'tpEnteGov' => 'TpEnteGov', 'indDest' => 'IndDest', 'cIndOp' => 'CIndOp'] as $from => $to) {
+                $dadosXml = str_replace(['<' . $from . '>', '</' . $from . '>'], ['<' . $to . '>', '</' . $to . '>'], $dadosXml);
+            }
+            \Alves\NfseBrasil\Provider\SpeedGovSchemaValidator::validarEnvio($dadosXml);
+        }
 
         // No SpeedGov, a assinatura do lote (LoteRps) é obrigatória.
         $dadosXml = $this->sign($dadosXml, 'Rps', null, 'Rps');

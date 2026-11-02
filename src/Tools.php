@@ -78,9 +78,18 @@ class Tools extends RestCurl
     /**
      * Gera DANFSE em PDF a partir do XML da NFS-e.
      */
-    public function gerarDanfsePdf(string $nfseXml, ?string $outputPath = null, ?string $provider = null): string
+    /** Validação local, inclusive assinatura/XSD, sem chamada ao provedor. */
+    public function validarPayloadMunicipal(array $payload): void
     {
-        $pdf = (new DanfsePdfGenerator())->generate($nfseXml, $provider);
+        if (strtolower((string) ($this->getProviderProfile()?->provedor() ?? '')) === 'speedgov') {
+            $payload['validar_schema'] = true;
+            $this->buildSpeedGovRecepcionarEnvelope($payload);
+        }
+    }
+
+    public function gerarDanfsePdf(string $nfseXml, ?string $outputPath = null, ?string $provider = null, array $context = []): string
+    {
+        $pdf = (new DanfsePdfGenerator())->generate($nfseXml, $provider, $context);
         if ($outputPath !== null && $outputPath !== '') {
             file_put_contents($outputPath, $pdf);
         }

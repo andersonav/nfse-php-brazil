@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Documento sintético para conferir a leitura do DANFSe; não é uma nota autorizada. -->
+<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">
+  <infNFSe Id="NFS23044001234567800019000000000000000000000000000000">
+    <xLocEmi>Fortaleza</xLocEmi><xLocPrestacao>Fortaleza</xLocPrestacao>
+    <nNFSe>123</nNFSe><cStat>100</cStat><dhProc>2026-10-30T10:30:00-03:00</dhProc><ambGer>1</ambGer>
+    <emit><CNPJ>12345678000190</CNPJ><IM>12345</IM><xNome>PRESTADOR TESTE</xNome>
+      <enderNac><xLgr>Rua de Teste</xLgr><nro>1</nro><xBairro>Centro</xBairro><cMun>2304400</cMun><UF>CE</UF><CEP>60000000</CEP></enderNac>
+      <fone>8530000000</fone><email>teste@example.invalid</email>
+    </emit>
+    <valores><vBC>1000.00</vBC><pAliqAplic>5.00</pAliqAplic><vISSQN>50.00</vISSQN><vTotalRet>0.00</vTotalRet><vLiq>1000.00</vLiq></valores>
+    <IBSCBS><cLocalidadeIncid>2304400</cLocalidadeIncid><xLocalidadeIncid>Fortaleza</xLocalidadeIncid>
+      <valores><vBC>950.00</vBC><uf><pIBSUF>0.10</pIBSUF><pRedAliqUF>60.00</pRedAliqUF><pAliqEfetUF>0.04</pAliqEfetUF><vIBSUF>0.38</vIBSUF></uf>
+        <mun><pIBSMun>0.00</pIBSMun><pRedAliqMun>60.00</pRedAliqMun><pAliqEfetMun>0.00</pAliqEfetMun><vIBSMun>0.00</vIBSMun></mun>
+        <fed><pCBS>0.90</pCBS><pRedAliqCBS>60.00</pRedAliqCBS><pAliqEfetCBS>0.36</pAliqEfetCBS><vCBS>3.42</vCBS></fed>
+      </valores><totCIBS><vTotNF>1000.00</vTotNF><gIBS><vIBSTot>0.38</vIBSTot><gIBSUFTot><vDifUF>0.00</vDifUF><vIBSUF>0.38</vIBSUF></gIBSUFTot><gIBSMunTot><vDifMun>0.00</vDifMun><vIBSMun>0.00</vIBSMun></gIBSMunTot></gIBS><gCBS><vCBS>3.42</vCBS></gCBS></totCIBS>
+    </IBSCBS>
+    <DPS versao="1.01"><infDPS Id="DPS_TESTE">
+      <tpAmb>2</tpAmb><dhEmi>2026-10-30T10:00:00-03:00</dhEmi><serie>1</serie><nDPS>456</nDPS><dCompet>2026-10-30</dCompet><tpEmit>1</tpEmit>
+      <prest><regTrib><opSimpNac>1</opSimpNac><regEspTrib>0</regEspTrib></regTrib></prest>
+      <toma><CNPJ>98765432000100</CNPJ><xNome>TOMADOR TESTE</xNome><fone>8530000001</fone><email>tomador@example.invalid</email></toma>
+      <serv><locPrest><cLocPrestacao>2304400</cLocPrestacao></locPrest><cServ><cTribNac>010601</cTribNac><xDescServ>Serviço de teste</xDescServ><cNBS>115012000</cNBS></cServ></serv>
+      <valores><vServPrest><vServ>1000.00</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun></trib></valores>
+      <IBSCBS><finNFSe>0</finNFSe><indFinal>1</indFinal><cIndOp>100301</cIndOp><indDest>0</indDest>
+        <valores><trib><gIBSCBS><CST>200</CST><cClassTrib>200001</cClassTrib></gIBSCBS></trib></valores>
+      </IBSCBS>
+    </infDPS></DPS>
+  </infNFSe>
+</NFSe>
