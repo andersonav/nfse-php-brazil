@@ -392,7 +392,7 @@ trait ToolsProviderBuilderSpeedGovTrait
             . '<QuantidadeRps>1</QuantidadeRps>'
             . '<ListaRps>'
             . '<Rps>'
-            . '<InfRps Id="' . $this->xmlAttr('RPS' . $rpsNumero) . '">'
+            . '<InfRps>'
             . '<IdentificacaoRps>'
             . '<Numero>' . $this->xmlValue($rpsNumero) . '</Numero>'
             . '<Serie>' . $this->xmlValue($rpsSerie) . '</Serie>'
@@ -469,9 +469,9 @@ trait ToolsProviderBuilderSpeedGovTrait
             \Alves\NfseBrasil\Provider\SpeedGovSchemaValidator::validarEnvio($dadosXml);
         }
 
-        // Assinaturas irmãs dos elementos assinados, nas posições definidas pelos XSDs.
-        $dadosXml = $this->sign($dadosXml, 'InfRps', 'Id', 'Rps');
-        $dadosXml = $this->sign($dadosXml, 'LoteRps', 'Id', 'EnviarLoteRpsEnvio');
+        // Contrato de recepção comprovado pelo xml_envio.xml de 11/09/2026:
+        // uma Signature em Rps, Reference URI vazia e InfRps sem Id.
+        $dadosXml = $this->sign($dadosXml, 'Rps', null, 'Rps');
         if (!empty($data['validar_schema'])) {
             \Alves\NfseBrasil\Provider\SpeedGovSchemaValidator::validarEnvio($dadosXml);
         }
