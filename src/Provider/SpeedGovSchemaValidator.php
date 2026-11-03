@@ -5,7 +5,7 @@ namespace Alves\NfseBrasil\Provider;
 use DOMDocument;
 use RuntimeException;
 
-/** XSDs públicos de https://notanacional.speedgov.com.br/web_service_xsds_nota_nacional_.zip */
+/** Contrato fornecido pelo SpeedGov: documentacao WS/xsd. Ver storage/schemes/speedgov/origem.txt. */
 final class SpeedGovSchemaValidator
 {
     public static function validarEnvio(string $xml): void

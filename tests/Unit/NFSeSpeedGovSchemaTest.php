@@ -21,7 +21,7 @@ class NFSeSpeedGovSchemaTest extends TestCase
     public function test_envio_com_rtc_obedece_estrutura_e_capitalizacao_do_xsd_publicado(): void
     {
         $xml = $this->build($this->payload());
-        foreach (['<FinNFSe>0</FinNFSe>', '<CIndOp>100301</CIndOp>', '<TpEnteGov>4</TpEnteGov>', '<IBSUFValorDiferido>0.19</IBSUFValorDiferido>', '<IBSCreditoPresumidoValor>9.50</IBSCreditoPresumidoValor>'] as $tag) { $this->assertStringContainsString($tag, $xml); }
+        foreach (['<finNFSe>0</finNFSe>', '<cIndOp>100301</cIndOp>', '<tpEnteGov>4</tpEnteGov>', '<IBSUFValorDiferido>0.19</IBSUFValorDiferido>', '<IBSCreditoPresumidoValor>9.50</IBSCreditoPresumidoValor>'] as $tag) { $this->assertStringContainsString($tag, $xml); }
     }
     public function test_campo_incompativel_com_xsd_e_recusado_antes_de_assinar_e_enviar(): void
     {

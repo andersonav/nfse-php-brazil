@@ -307,7 +307,11 @@ class Tools extends RestCurl
                 'handled' => true,
                 'response' => $this->executeRuntimePlan($plan, $payload, $service, $profile, $url, $operation),
             ];
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Uma falha SOAP não autoriza nova tentativa em JSON, especialmente após timeout.
+            if (strtolower($profile->provedor()) === 'speedgov') {
+                throw $e;
+            }
             return ['handled' => false, 'response' => null];
         }
     }

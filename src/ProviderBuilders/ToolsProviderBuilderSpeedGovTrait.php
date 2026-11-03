@@ -20,6 +20,9 @@ trait ToolsProviderBuilderSpeedGovTrait
 
         $loteNumero = (string) ($data['lote']['numero_lote'] ?? '1');
         $rpsList = $data['rps'] ?? [];
+        if (!is_array($rpsList) || count($rpsList) !== 1 || (int) ($data['lote']['quantidade_rps'] ?? 1) !== 1) {
+            throw new RuntimeException('O envio SpeedGov desta integração exige exatamente um RPS por lote.');
+        }
         $first = is_array($rpsList) && isset($rpsList[0]) && is_array($rpsList[0]) ? $rpsList[0] : [];
         $ident = is_array($first['identificacao'] ?? null) ? $first['identificacao'] : [];
         $prestador = is_array($first['prestador'] ?? null) ? $first['prestador'] : [];
@@ -103,6 +106,9 @@ trait ToolsProviderBuilderSpeedGovTrait
 
         // SpeedGov costuma validar schema/campos com codigos apenas numericos.
         $itemListaServico = preg_replace('/\D+/', '', $itemListaServico) ?: '';
+        if ($itemListaServico !== '' && strlen($itemListaServico) < 4) {
+            $itemListaServico = str_pad($itemListaServico, 4, '0', STR_PAD_LEFT);
+        }
         $codigoCnae = preg_replace('/\D+/', '', $codigoCnae) ?: '';
         $codigoTributacaoMunicipio = preg_replace('/\D+/', '', $codigoTributacaoMunicipio) ?: '';
         if ($itemListaServico !== '' && strlen($itemListaServico) > 5) {
@@ -386,7 +392,7 @@ trait ToolsProviderBuilderSpeedGovTrait
             . '<QuantidadeRps>1</QuantidadeRps>'
             . '<ListaRps>'
             . '<Rps>'
-            . '<InfRps>'
+            . '<InfRps Id="' . $this->xmlAttr('RPS' . $rpsNumero) . '">'
             . '<IdentificacaoRps>'
             . '<Numero>' . $this->xmlValue($rpsNumero) . '</Numero>'
             . '<Serie>' . $this->xmlValue($rpsSerie) . '</Serie>'
@@ -460,17 +466,15 @@ trait ToolsProviderBuilderSpeedGovTrait
             . '</EnviarLoteRpsEnvio>';
 
         if (!empty($data['validar_schema'])) {
-            // Nomes no contrato SOAP publicado; não confundir com a capitalização do XML nacional.
-            foreach (['finNFSe' => 'FinNFSe', 'indFinal' => 'IndFinal', 'tpOper' => 'TpOper',
-                'tpEnteGov' => 'TpEnteGov', 'indDest' => 'IndDest', 'cIndOp' => 'CIndOp'] as $from => $to) {
-                $dadosXml = str_replace(['<' . $from . '>', '</' . $from . '>'], ['<' . $to . '>', '</' . $to . '>'], $dadosXml);
-            }
             \Alves\NfseBrasil\Provider\SpeedGovSchemaValidator::validarEnvio($dadosXml);
         }
 
-        // No SpeedGov, a assinatura do lote (LoteRps) é obrigatória.
-        $dadosXml = $this->sign($dadosXml, 'Rps', null, 'Rps');
-        $dadosXml = $this->sign($dadosXml, 'LoteRps', 'Id', 'LoteRps');
+        // Assinaturas irmãs dos elementos assinados, nas posições definidas pelos XSDs.
+        $dadosXml = $this->sign($dadosXml, 'InfRps', 'Id', 'Rps');
+        $dadosXml = $this->sign($dadosXml, 'LoteRps', 'Id', 'EnviarLoteRpsEnvio');
+        if (!empty($data['validar_schema'])) {
+            \Alves\NfseBrasil\Provider\SpeedGovSchemaValidator::validarEnvio($dadosXml);
+        }
 
         return '<?xml version="1.0" encoding="UTF-8"?>'
             . '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:nfse="http://www.abrasf.org.br/ABRASF/arquivos/nfse.xsd">'

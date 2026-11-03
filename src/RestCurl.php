@@ -787,6 +787,14 @@ class RestCurl extends RestBase
      */
     public function sign(string $content, string $tagname, ?string $mark, $rootname)
     {
+        if (strtolower((string) ($this->getProviderProfile()?->provedor() ?? '')) === 'speedgov') {
+            if (!$this->certificate) {
+                throw new RuntimeException('Certificado digital obrigatório para assinar XML SpeedGov.');
+            }
+            return \Alves\NfseBrasil\Provider\SpeedGovXmlSigner::sign(
+                $this->certificate, $content, $tagname, $mark ?: 'Id', $rootname
+            );
+        }
         if (empty($mark)) {
             $mark = 'Id';
         }
