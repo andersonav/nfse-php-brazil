@@ -223,9 +223,15 @@ final class MunicipalDanfseParser
             return $value !== '' ? $value : $get($el('ControleIBSCBS') . '/' . $el(lcfirst($name)));
         };
         $d['chave'] = $get('@Id') ?: $get('@id') ?: $get($el('CodigoVerificacao'));
-        $chaveNacional = preg_match('/^NFS(\d{50})$/', $d['chave'], $match) === 1;
+        $chaveNacional = false;
+        foreach ([$get('@Id'), $get('@id'), $get($el('ChaveAcesso')), $get($el('chaveAcesso')), $get($el('chave_acesso')), $get($el('chNFSe'))] as $candidata) {
+            if (preg_match('/^(?:NFS)?([0-9]{50})$/iD', trim($candidata), $match) === 1) {
+                $d['chave'] = $match[1];
+                $chaveNacional = true;
+                break;
+            }
+        }
         if ($chaveNacional) {
-            $d['chave'] = $match[1];
             // A identificação do RPS municipal não substitui a identificação da DPS.
             $d['numero_rps'] = $get($el('DadosDPS') . '/' . $el('nDPS')) ?: '-';
             $d['serie_rps'] = $get($el('DadosDPS') . '/' . $el('serie')) ?: '-';
