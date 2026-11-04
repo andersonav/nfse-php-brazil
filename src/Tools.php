@@ -42,6 +42,65 @@ class Tools extends RestCurl
         return $retorno;
     }
 
+    /**
+     * Recupera o XML autorizado pelo ADN disponível na API REST do SpeedGov.
+     * $baseUrl deve incluir o município e /api/v1; não é o endereço SOAP /Nfes.
+     * Retorna null enquanto o provedor disponibilizar somente a DPS ou nenhum XML.
+     */
+    public function consultarXmlNacionalSpeedGov(string $chave, string $baseUrl, int $ambiente): ?string
+    {
+        $baseUrl = rtrim(trim($baseUrl), '/');
+        if (!preg_match('/^\d{50}$/D', $chave) || !in_array($ambiente, [1, 2], true)) {
+            throw new RuntimeException('Chave de acesso ou ambiente inválido para consultar o XML nacional.');
+        }
+        if (!preg_match('~^https://tributario\.speedgov\.com\.br/[a-z0-9_-]+/api/v1$~D', $baseUrl)) {
+            throw new RuntimeException('Configure a URL REST do SpeedGov com o município e /api/v1.');
+        }
+        if ($ambiente === 1 && str_contains($baseUrl, '/integracao/')) {
+            throw new RuntimeException('O sandbox integracao do SpeedGov não pode consultar notas de produção.');
+        }
+
+        $retorno = $this->getFromUrlWithHeaders($baseUrl.'/nfse/'.$chave, ['Accept: application/json'], true);
+        $http = (int) ($this->soapinfo['http_code'] ?? 0);
+        if ($http < 200 || $http >= 300 || !is_array($retorno) || ($retorno['status'] ?? '') !== 'OK') {
+            throw new RuntimeException('Consulta do XML nacional no SpeedGov indisponível (HTTP '.$http.').');
+        }
+        $nota = $retorno['nota'] ?? [];
+        if (!is_array($nota) || (string) ($nota['chave_acesso'] ?? '') !== $chave) {
+            throw new RuntimeException('A API SpeedGov retornou uma chave diferente da NFS-e consultada.');
+        }
+        if ((int) ($nota['codigo_situacao_nfse'] ?? 0) !== 100 || empty($nota['xml_nota'])) {
+            return null;
+        }
+
+        $xml = (string) $nota['xml_nota'];
+        self::validarXmlNacionalSpeedGov($xml, $chave, $ambiente);
+
+        return $xml;
+    }
+
+    /** Confere a identidade e a autorização sem reserializar o XML assinado. */
+    public static function validarXmlNacionalSpeedGov(string $xml, string $chave, int $ambiente): void
+    {
+        $dom = new DOMDocument();
+        if (stripos($xml, '<!DOCTYPE') !== false || !@$dom->loadXML($xml, LIBXML_NONET) || $dom->doctype !== null) {
+            throw new RuntimeException('Não foi disponibilizado um XML nacional válido.');
+        }
+        $xp = new \DOMXPath($dom);
+        $xp->registerNamespace('n', 'http://www.sped.fazenda.gov.br/nfse');
+        $inf = $xp->query('/n:NFSe/n:infNFSe');
+        if ($inf->length !== 1
+            || !preg_match('/^\d{50}$/D', $chave)
+            || !in_array($ambiente, [1, 2], true)
+            || $inf->item(0)->getAttribute('Id') !== 'NFS'.$chave
+            || trim($xp->evaluate('string(/n:NFSe/n:infNFSe/n:nNFSe)')) === ''
+            || $xp->evaluate('string(/n:NFSe/n:infNFSe/n:cStat)') !== '100'
+            || $xp->query('/n:NFSe/n:infNFSe/n:DPS/n:infDPS')->length !== 1
+            || $xp->evaluate('string(/n:NFSe/n:infNFSe/n:DPS/n:infDPS/n:tpAmb)') !== (string) $ambiente) {
+            throw new RuntimeException('O XML retornado não é a NFS-e nacional autorizada da mesma chave e ambiente.');
+        }
+    }
+
     public function consultarNfseEventos($chave, $tipoEvento = null, $nSequencial = null)
     {
         $operacao = str_replace("{chave}", $chave, $this->getOperation('consultar_eventos'));
@@ -57,6 +116,84 @@ class Tools extends RestCurl
 
         $retorno = $this->getData($operacao);
         return $retorno;
+    }
+
+    /** Consulta por chave no ADN Contribuinte. /Eventos não é distribuição por NSU. */
+    public function consultarEventosAdn(string $chave, int $ambiente): array
+    {
+        if (!preg_match('/^\d{50}$/D', $chave) || !in_array($ambiente, [1, 2], true)) {
+            throw new RuntimeException('Informe a chave nacional de 50 dígitos e um ambiente válido para consultar o ADN.');
+        }
+        $base = $ambiente === 1 ? 'https://adn.nfse.gov.br/contribuintes' : 'https://adn.producaorestrita.nfse.gov.br/contribuintes';
+        $url = $base.'/NFSe/'.$chave.'/Eventos';
+        $resposta = $this->getFromUrlWithHeaders($url, ['Accept: application/json'], true);
+        $http = (int) ($this->soapinfo['http_code'] ?? 0);
+        if (!is_array($resposta) || !isset($resposta['StatusProcessamento'])) {
+            throw new RuntimeException('Resposta inválida na consulta ADN (HTTP '.$http.'). Verifique a conexão e o certificado.');
+        }
+        $ret = [
+            'HTTP_STATUS' => $http, 'STATUS_PROCESSAMENTO' => (string) $resposta['StatusProcessamento'],
+            'CHAVE_ACESSO' => $chave, 'AMBIENTE' => $ambiente, 'URL' => $url,
+            'ERROS' => $resposta['Erros'] ?? [], 'ALERTAS' => $resposta['Alertas'] ?? [], 'DOCUMENTOS' => [],
+        ];
+        $tipoAmbiente = $ambiente === 1 ? 'PRODUCAO' : 'HOMOLOGACAO';
+        if (($resposta['TipoAmbiente'] ?? '') !== $tipoAmbiente) {
+            throw new RuntimeException('O ambiente retornado pelo ADN difere do ambiente configurado para a NFS-e.');
+        }
+        if ($http !== 200 || $ret['ERROS'] !== []) {
+            return $ret;
+        }
+        if ($ret['STATUS_PROCESSAMENTO'] !== 'DOCUMENTOS_LOCALIZADOS' || !is_array($resposta['LoteDFe'] ?? null)) {
+            throw new RuntimeException('Retorno de documentos do ADN incompleto.');
+        }
+        foreach ($resposta['LoteDFe'] as $documento) {
+            if (!is_array($documento) || ($documento['ChaveAcesso'] ?? '') !== $chave) {
+                throw new RuntimeException('O ADN retornou documento de outra chave de acesso.');
+            }
+            $tipo = (string) ($documento['TipoDocumento'] ?? '');
+            if (!in_array($tipo, ['NFSE', 'EVENTO'], true)) {
+                throw new RuntimeException('Tipo de documento inesperado na consulta de eventos do ADN: '.$tipo.'.');
+            }
+            $compactado = base64_decode((string) ($documento['ArquivoXml'] ?? ''), true);
+            $xml = $compactado === false ? false : @gzdecode($compactado, 10485760);
+            if ($xml === false || $xml === '') {
+                throw new RuntimeException('O ADN retornou um XML compactado inválido.');
+            }
+            $codigoEvento = '';
+            if ($tipo === 'NFSE') {
+                // O enum é compartilhado; só aceite NFSE se o conteúdo realmente for uma nota autorizada.
+                self::validarXmlNacionalSpeedGov($xml, $chave, $ambiente);
+            } else {
+                $dom = new DOMDocument();
+                if (stripos($xml, '<!DOCTYPE') !== false || !@$dom->loadXML($xml, LIBXML_NONET) || $dom->doctype !== null) {
+                    throw new RuntimeException('XML de evento ADN inválido.');
+                }
+                $xp = new \DOMXPath($dom);
+                $xp->registerNamespace('n', 'http://www.sped.fazenda.gov.br/nfse');
+                $pedido = '/n:evento/n:infEvento/n:pedRegEvento/n:infPedReg';
+                if ($xp->query($pedido)->length !== 1
+                    || $xp->evaluate('string('.$pedido.'/n:chNFSe)') !== $chave
+                    || $xp->evaluate('string('.$pedido.'/n:tpAmb)') !== (string) $ambiente) {
+                    throw new RuntimeException('O evento ADN não corresponde à chave e ao ambiente consultados.');
+                }
+                foreach ($xp->query($pedido.'/*') as $node) {
+                    if (preg_match('/^e\d{6}$/D', $node->localName)) {
+                        $codigoEvento = $node->localName;
+                        break;
+                    }
+                }
+                if ($codigoEvento === '') {
+                    throw new RuntimeException('O XML retornado não identifica o tipo de evento nacional.');
+                }
+            }
+            $ret['DOCUMENTOS'][] = [
+                'TIPO_DOCUMENTO' => $tipo, 'TIPO_EVENTO' => (string) ($documento['TipoEvento'] ?? ''),
+                'CODIGO_EVENTO' => $codigoEvento, 'DATA' => (string) ($documento['DataHoraGeracao'] ?? ''),
+                'XML' => $xml,
+            ];
+        }
+
+        return $ret;
     }
 
     public function consultarDanfse($chave)

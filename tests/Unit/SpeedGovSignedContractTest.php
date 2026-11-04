@@ -69,6 +69,28 @@ final class SpeedGovSignedContractTest extends TestCase
         self::assertSame(1, $xp->query('//*[local-name()="finNFSe"]')->length);
         self::assertSame(0, $xp->query('//*[local-name()="FinNFSe"]')->length);
     }
+    public function testCancelamentoAssinadoValidaXsdAntesDeTransmitir(): void
+    {
+        $tools = $this->tools();
+        $payload = ['numero_nfse' => '4692', 'prestador_cnpj' => '12345678000190',
+            'prestador_im' => '12345', 'codigo_municipio' => '2307650', 'codigo_cancelamento' => '1'];
+        $build = new \ReflectionMethod(Tools::class, 'buildSpeedGovDataForService');
+        $xml = $build->invoke($tools, $payload, 'cancelar_nf_se');
+        SpeedGovSchemaValidator::validarCancelamento($xml);
+        $xp = new DOMXPath($this->documento($xml));
+        $xp->registerNamespace('ds', 'http://www.w3.org/2000/09/xmldsig#');
+        self::assertSame('4692', $xp->evaluate('string(//*[local-name()="IdentificacaoNfse"]/*[local-name()="Numero"])'));
+        self::assertSame(1, $xp->query('//*[local-name()="Pedido"]/ds:Signature')->length);
+        $signature = $xp->query('//ds:Signature')->item(0);
+        $info = $xp->query('./ds:SignedInfo', $signature)->item(0);
+        $cert = "-----BEGIN CERTIFICATE-----\n".$xp->evaluate('string(ds:KeyInfo/ds:X509Data/ds:X509Certificate)', $signature)."\n-----END CERTIFICATE-----";
+        self::assertSame(1, openssl_verify($info->C14N(true, false), base64_decode($xp->evaluate('string(ds:SignatureValue)', $signature)), $cert, OPENSSL_ALGO_SHA1));
+        $payload['prestador_cnpj'] = '123';
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('XSD SpeedGov');
+        $build->invoke($tools, $payload, 'cancelar_nf_se');
+    }
+
     public function testTimeoutNaoReenviaPayloadComoJson(): void
     {
         $tools = $this->tools();

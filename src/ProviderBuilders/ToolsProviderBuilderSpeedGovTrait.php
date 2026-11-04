@@ -592,6 +592,17 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . '</ConsultarNfseRpsEnvio>';
         }
 
+        if (in_array($normalized, ['consultar_nfse', 'consultar_nf_se'], true)) {
+            if (!preg_match('/^[0-9]{1,15}$/D', $numeroNfse) || empty($data['prestador_cnpj']) || empty($data['prestador_im'])) {
+                throw new RuntimeException('Consulta por número requer numero_nfse, prestador_cnpj e prestador_im.');
+            }
+            return '<ConsultarNfseEnvio xmlns="http://ws.speedgov.com.br/consultar_nfse_envio_v1.xsd">'
+                . '<Prestador xmlns=""><Cnpj>' . $this->xmlValue($cnpj) . '</Cnpj>'
+                . '<InscricaoMunicipal>' . $this->xmlValue($im) . '</InscricaoMunicipal></Prestador>'
+                . '<NumeroNfse xmlns="">' . $this->xmlValue($numeroNfse) . '</NumeroNfse>'
+                . '</ConsultarNfseEnvio>';
+        }
+
         if ($normalized === 'consultar_lote') {
             return '<ConsultarLoteRpsEnvio xmlns="http://ws.speedgov.com.br/consultar_lote_rps_envio_v1.xsd">'
                 . '<Prestador xmlns="">'
@@ -631,7 +642,10 @@ trait ToolsProviderBuilderSpeedGovTrait
                 . '</Pedido>'
                 . '</CancelarNfseEnvio>';
 
-            return $this->sign($cancelamentoXml, 'InfPedidoCancelamento', 'Id', 'Pedido');
+            $cancelamentoXml = $this->sign($cancelamentoXml, 'InfPedidoCancelamento', 'Id', 'Pedido');
+            \Alves\NfseBrasil\Provider\SpeedGovSchemaValidator::validarCancelamento($cancelamentoXml);
+
+            return $cancelamentoXml;
         }
 
         return $this->buildAbrasfDataForMethod($data, $service);

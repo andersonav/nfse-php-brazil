@@ -753,9 +753,9 @@ class RestCurl extends RestBase
         return $this->requestAbsoluteUrl($url);
     }
 
-    public function getFromUrlWithHeaders(string $url, array $headers = []): mixed
+    public function getFromUrlWithHeaders(string $url, array $headers = [], bool $verifyTls = false): mixed
     {
-        return $this->requestAbsoluteUrl($url, null, $headers);
+        return $this->requestAbsoluteUrl($url, null, $headers, $verifyTls);
     }
 
     public function postFormToUrl(string $url, array|string $data, array $headers = []): mixed
@@ -849,7 +849,7 @@ class RestCurl extends RestBase
         }
     }
 
-    private function requestAbsoluteUrl(string $url, ?string $data = null, array $headers = []): mixed
+    private function requestAbsoluteUrl(string $url, ?string $data = null, array $headers = [], bool $verifyTls = false): mixed
     {
         $this->saveTemporarilyKeyFiles();
         try {
@@ -875,8 +875,8 @@ class RestCurl extends RestBase
             curl_setopt($oCurl, CURLOPT_TIMEOUT, $this->timeout);
             curl_setopt($oCurl, CURLOPT_HEADER, 1);
             curl_setopt($oCurl, CURLOPT_HTTP_VERSION, $this->httpver);
-            curl_setopt($oCurl, CURLOPT_SSL_VERIFYHOST, 0);
-            curl_setopt($oCurl, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_setopt($oCurl, CURLOPT_SSL_VERIFYHOST, $verifyTls ? 2 : 0);
+            curl_setopt($oCurl, CURLOPT_SSL_VERIFYPEER, $verifyTls);
             if (!empty($this->security_level)) {
                 curl_setopt($oCurl, CURLOPT_SSL_CIPHER_LIST, "{$this->security_level}");
             }
@@ -887,6 +887,7 @@ class RestCurl extends RestBase
                 curl_setopt($oCurl, CURLOPT_KEYPASSWD, $this->temppass);
             }
             curl_setopt($oCurl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($oCurl, CURLOPT_HTTPHEADER, $effectiveHeaders);
             if ($data !== null) {
                 curl_setopt($oCurl, CURLOPT_POST, 1);
                 curl_setopt($oCurl, CURLOPT_POSTFIELDS, $data);

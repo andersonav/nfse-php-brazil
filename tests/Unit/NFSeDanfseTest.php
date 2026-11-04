@@ -1,5 +1,5 @@
 <?php
-namespace Alves\NfseBrasil\Tests\Unit;
+namespace Tests\Unit;
 
 use Alves\NfseBrasil\Danfse\DanfsePdfGenerator;
 use Alves\NfseBrasil\Danfse\NationalDanfseParser;
@@ -49,6 +49,39 @@ class NFSeDanfseTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
         (new DanfsePdfGenerator())->generate('<EnviarLoteRpsEnvio><InfRps><Numero>1</Numero></InfRps></EnviarLoteRpsEnvio>');
+    }
+
+    public function test_speedgov_com_chave_nacional_preserva_zeros_e_ausencias_do_retorno(): void
+    {
+        $xml = str_replace('Id="NFSE123"', 'id="NFS'.str_repeat('1', 50).'"', $this->xml('speedgov'));
+        $xml = preg_replace('/<ControleIBSCBS>.*?<\/ControleIBSCBS>/s', '', $xml);
+        $xml = preg_replace('/<IBSCBS>.*?<\/IBSCBS>/s', '<IBSCBS><IBSUFAliquota>0</IBSUFAliquota><IBSMunAliquota>0</IBSMunAliquota><CBSAliquota>0</CBSAliquota><IBSUFValor>0</IBSUFValor><IBSMunValor>0</IBSMunValor><CBSValor>0</CBSValor></IBSCBS>', $xml);
+        $xml = str_replace(['<serie>1</serie>', '<nDPS>456</nDPS>'], '', $xml);
+        $d = (new MunicipalDanfseParser)->parse($xml);
+
+        self::assertSame(str_repeat('1', 50), $d['chave']);
+        self::assertSame('-', $d['serie_rps']);
+        self::assertSame('-', $d['numero_rps']);
+        self::assertSame('-', $d['cst_class']);
+        self::assertSame('-', $d['ibs_base_apos']);
+        self::assertSame('R$ 0,00', $d['ibs_valor_est']);
+        self::assertSame('R$ 0,00', $d['cbs_valor']);
+        self::assertStringStartsWith('https://www.producaorestrita.nfse.gov.br/', $d['qrcode_payload']);
+        $pdf = (new DanfsePdfGenerator)->generate($xml, null, ['layout' => 'nacional', 'chave' => $d['chave']]);
+        self::assertStringStartsWith('%PDF-', $pdf);
+        self::assertSame(1, preg_match_all('/\/Type\s*\/Page\b/', $pdf));
+    }
+
+    public function test_controle_ibscbs_le_capitalizacao_do_speedgov_e_preserva_codigo_zero(): void
+    {
+        $xml = str_replace(['FinNFSe', 'CIndOp', 'IndDest'], ['finNFSe', 'cIndOp', 'indDest'], $this->xml('speedgov'));
+        $xml = preg_replace('/<finNFSe>.*?<\/finNFSe>/', '<finNFSe>0</finNFSe>', $xml);
+        $xml = str_replace('</DadosDPS>', '<RegApTribSN>2</RegApTribSN></DadosDPS>', $xml);
+        $d = (new MunicipalDanfseParser)->parse($xml);
+
+        self::assertSame('NFS-e Regular', $d['finalidade_desc']);
+        self::assertStringContainsString('100301', $d['ibs_local']);
+        self::assertSame('Tributos federais pelo SN e ISS pela NFS-e', $d['reg_ap_sn_desc']);
     }
 
     public function test_nao_mistura_duas_notas_no_mesmo_pdf(): void

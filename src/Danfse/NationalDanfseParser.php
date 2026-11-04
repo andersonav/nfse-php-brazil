@@ -143,7 +143,7 @@ final class NationalDanfseParser
             'v_ibscbs' => $this->sum([$totalIbs, $totalCbs]), 'v_liq_ibscbs' => $this->money($v($ibs . 'n:totCIBS/n:vTotNF')),
             'info_comp' => implode(' | ', $parts),
             'totais_aproximados' => 'Totais Aproximados dos Tributos cfe. Lei nº 12.741/2012: ' . implode('; ', $totTrib),
-            'qrcode_payload' => 'https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=' . $chave,
+            'qrcode_payload' => 'https://' . ($p('n:tpAmb') === '2' ? 'www.producaorestrita.nfse.gov.br' : 'www.nfse.gov.br') . '/ConsultaPublica/?tpc=1&chave=' . $chave,
             'marca_agua' => $this->watermark(),
         ];
     }

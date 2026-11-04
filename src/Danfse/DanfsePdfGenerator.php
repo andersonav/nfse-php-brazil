@@ -14,6 +14,7 @@ final class DanfsePdfGenerator
     public function generate(string $nfseXml, $provider = null, array $context = []): string
     {
         $d = $this->extractData($nfseXml);
+        $d['layout_nacional'] = $d['nacional'] || ($context['layout'] ?? '') === 'nacional';
         if (isset($context['chave']) && $context['chave'] !== '' && $context['chave'] !== $d['chave']) {
             throw new RuntimeException('A situação fiscal informada não pertence ao XML da NFS-e.');
         }
@@ -106,7 +107,7 @@ final class DanfsePdfGenerator
         $p = $this->pdf;
         $p->SetFillColor(242, 242, 242); $p->Rect(3, 3, 204, 11.6, 'F');
         $p->Image(__DIR__ . '/assets/img/logo-nfs-e-horizontal.png', 4.9, 4.4, 40, 8.5);
-        $this->text(54.1, 3.2, 101.9, $d['nacional'] ? 'DANFSe v2.0' : 'DANFSe Municipal', true, 9, 'C');
+        $this->text(54.1, 3.2, 101.9, $d['layout_nacional'] ? 'DANFSe v2.0' : 'DANFSe Municipal', true, 9, 'C');
         $this->text(54.1, 6.5, 101.9, 'Documento Auxiliar da NFS-e', true, 9, 'C');
         if ($d['tp_amb'] === '2') {
             $p->SetTextColor(255, 0, 0);
@@ -118,7 +119,7 @@ final class DanfsePdfGenerator
         $this->text(156.2, 9.5, 50.8, 'Ambiente Gerador: ' . $d['ambiente_gerador_desc'], false, 6);
         $this->text(156.2, 11.8, 50.8, 'Tipo de Ambiente: ' . $d['ambiente_desc'], false, 6);
         $this->separator(14.8);
-        $this->field(3, 14.8, 153, $d['nacional'] ? 'CHAVE DE ACESSO DA NFS-e' : 'CHAVE / CÓDIGO DE VERIFICAÇÃO', $d['chave'], 7.7, true);
+        $this->field(3, 14.8, 153, preg_match('/^\d{50}$/', $d['chave']) ? 'CHAVE DE ACESSO DA NFS-e' : 'CHAVE / CÓDIGO DE VERIFICAÇÃO', $d['chave'], 7.7, true);
         $this->field(3, 22.7, 51, 'NÚMERO DA NFS-e', $d['numero_nfse'], 6.7, true);
         $this->field(54.1, 22.7, 51, 'COMPETÊNCIA DA NFS-e', $d['competencia'], 6.7, true);
         $this->field(105.1, 22.7, 51, 'DATA E HORA DA EMISSÃO DA NFS-e', $d['data_emissao_nfse'], 6.7, true);

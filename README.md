@@ -150,3 +150,27 @@ composer test:integration
 - O arquivo `.php` é a fonte principal de runtime.
 - O arquivo `.js` é mantido como serialização auxiliar do mesmo catálogo.
 - A pasta `storage/schemes` permanece como apoio técnico para validações e integração com provedores.
+## XML nacional autorizado via SpeedGov
+
+Além da consulta SOAP municipal, `Tools::consultarXmlNacionalSpeedGov($chave, $baseUrl, $ambiente)` consulta `GET /{municipio}/api/v1/nfse/{chave}` e devolve `nota.xml_nota` sem modificar os bytes do XML. A URL deve ser HTTPS e incluir o prefixo do município e `/api/v1`. Confirme com o provedor o endereço e a disponibilidade de notas originadas no SOAP; o catálogo SOAP não define essa URL.
+
+```php
+$xmlNacional = $tools->consultarXmlNacionalSpeedGov($chave, $urlRestConfirmada, $tpAmb);
+if ($xmlNacional !== null) {
+    // Armazene separadamente do CompNfse municipal e priorize no DANFSe.
+}
+```
+
+O retorno é `null` enquanto não houver XML autorizado; falhas HTTP, chave divergente ou XML inválido lançam `RuntimeException`. São conferidos namespace, chave de 50 dígitos, cStat=100, número da nota, DPS e ambiente. Uma DPS isolada nunca é aceita como NFS-e autorizada. A conferência estrutural não substitui validação criptográfica da assinatura. Uma falha nessa recuperação complementar não deve desfazer a autorização municipal; tente novamente na próxima consulta. O tenant `integracao` é sandbox e não aceita consultas de produção neste método.
+
+Contrato: https://tributario.speedgov.com.br/integracao/api/docs/nfse
+
+## Consulta de eventos no ADN por chave
+
+`Tools::consultarEventosAdn($chave, $ambiente)` consulta exclusivamente `GET /contribuintes/NFSe/{ChaveAcesso}/Eventos`, no host `adn.nfse.gov.br` para ambiente 1 ou `adn.producaorestrita.nfse.gov.br` para ambiente 2. Utiliza o certificado do construtor, autenticação mútua e validação TLS. Não faz consulta nem mantém controle de NSU.
+
+O retorno contém `HTTP_STATUS`, `STATUS_PROCESSAMENTO`, `ERROS`, `ALERTAS` e `DOCUMENTOS`. Cada documento traz `TIPO_DOCUMENTO`, `TIPO_EVENTO`, `CODIGO_EVENTO`, `DATA` e `XML` descompactado de Base64/GZip, conferido quanto à chave e ao ambiente. Eventos devem ser guardados separadamente da NFS-e autorizada. E2240 significa ausência de eventos; E2241 significa falta de vínculo/acesso e não deve ser tratado como uma consulta vazia bem-sucedida. Falhas de transporte ou conteúdo inválido lançam RuntimeException.
+
+O enum TipoDocumento é compartilhado pelo Swagger: sua opção NFSE não constitui um parâmetro para pedir o XML da nota em /Eventos. Caso o servidor efetivamente devolva tipo NFSE, a biblioteca exige o XML nacional autorizado correspondente antes de aceitá-lo. Não infira autorização/rejeição da nota a partir da ausência de eventos.
+
+Para SpeedGov, o serviço municipal `consultar_nfse` monta `ConsultarNfseEnvio` com os campos `prestador_cnpj`, `prestador_im` e `numero_nfse`. O número utilizado é o municipal autorizado, não o RPS ou a DPS.

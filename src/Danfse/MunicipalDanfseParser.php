@@ -218,10 +218,25 @@ final class MunicipalDanfseParser
         $get = fn(string $path): string => trim((string) $xp->evaluate('string(/*/' . $path . ')'));
         $el = fn(string $name): string => '*[local-name()="' . $name . '"]';
         $rtc = fn(string $name): string => $get($el('IBSCBS') . '/' . $el($name));
-        $ctrl = fn(string $name): string => $get($el('ControleIBSCBS') . '/' . $el($name));
-        $d['chave'] = $get('@Id') ?: $get($el('CodigoVerificacao'));
+        $ctrl = function(string $name) use ($get, $el): string {
+            $value = $get($el('ControleIBSCBS') . '/' . $el($name));
+            return $value !== '' ? $value : $get($el('ControleIBSCBS') . '/' . $el(lcfirst($name)));
+        };
+        $d['chave'] = $get('@Id') ?: $get('@id') ?: $get($el('CodigoVerificacao'));
+        $chaveNacional = preg_match('/^NFS(\d{50})$/', $d['chave'], $match) === 1;
+        if ($chaveNacional) {
+            $d['chave'] = $match[1];
+            // A identificação do RPS municipal não substitui a identificação da DPS.
+            $d['numero_rps'] = $get($el('DadosDPS') . '/' . $el('nDPS')) ?: '-';
+            $d['serie_rps'] = $get($el('DadosDPS') . '/' . $el('serie')) ?: '-';
+        }
         $d['nacional'] = false;
         $d['tp_amb'] = $get($el('DadosDPS') . '/' . $el('TpAmb'));
+        $d['reg_ap_sn_desc'] = [
+            '1' => 'Tributos federais e municipal pelo SN',
+            '2' => 'Tributos federais pelo SN e ISS pela NFS-e',
+            '3' => 'Tributos federais e ISS pela NFS-e',
+        ][$get($el('DadosDPS') . '/' . $el('RegApTribSN'))] ?? '-';
         $d['ambiente_gerador_desc'] = 'Municipal';
         $d['emitente_desc'] = ['1' => 'Prestador', '2' => 'Tomador', '3' => 'Intermediário'][$get($el('DadosDPS') . '/' . $el('TpEmit'))] ?? 'Prestador';
         $d['situacao_nfse_desc'] = 'NFS-e Gerada';
@@ -249,8 +264,8 @@ final class MunicipalDanfseParser
         $d['ret_issqn_desc'] = ['1' => 'Retido', '2' => 'Não Retido'][$get($el('Servico') . '/' . $el('Valores') . '/' . $el('IssRetido'))] ?? '-';
         $d['local_prest_desc'] = $this->resolveLocalPrestacao($get($el('DadosDPS') . '/' . $el('CLocPrestacao')) ?: $d['local_prest']);
         $d['mun_incid'] = $this->resolveLocalPrestacao($d['mun_incid']);
-        $d['cst_class'] = trim($ctrl('CST') . ' / ' . $ctrl('cClassTrib'), ' /');
-        $d['ibs_local'] = trim($ctrl('CIndOp') . ' / ' . $rtc('LocalidadeIncidenciaCod') . ' / ' . $rtc('LocalidadeIncidenciaNome') . ' / ' . ($this->resolveMunicipioByIbge($rtc('LocalidadeIncidenciaCod'))['uf'] ?? ''), ' /');
+        $d['cst_class'] = trim($ctrl('CST') . ' / ' . $ctrl('cClassTrib'), ' /') ?: '-';
+        $d['ibs_local'] = trim($ctrl('CIndOp') . ' / ' . $rtc('LocalidadeIncidenciaCod') . ' / ' . $rtc('LocalidadeIncidenciaNome') . ' / ' . ($this->resolveMunicipioByIbge($rtc('LocalidadeIncidenciaCod'))['uf'] ?? ''), ' /') ?: '-';
         foreach (['ibs_base_apos' => 'IBSCBSBaseCalculo', 'ibs_valor_mun' => 'IBSMunValor', 'ibs_valor_est' => 'IBSUFValor', 'ibs_total' => 'IBSValorTotal', 'cbs_valor' => 'CBSValor', 'v_ibscbs' => 'IBSValorTotal', 'v_liq_ibscbs' => 'ValorTotalComTributos'] as $key => $tag) { $d[$key] = $this->money($rtc($tag)); }
         foreach (['ibs_aliq_mun' => 'IBSMunAliquotaEfetiva', 'ibs_aliq_est' => 'IBSUFAliquotaEfetiva', 'cbs_aliquota' => 'CBSAliquota', 'cbs_aliquota_efetiva' => 'CBSAliquotaEfetiva'] as $key => $tag) { $d[$key] = $this->percent($rtc($tag)); }
         $d['ibs_aliq_uf_mun'] = $this->percent($rtc('IBSUFAliquota')) . ' / ' . $this->percent($rtc('IBSMunAliquota'));
@@ -272,8 +287,12 @@ final class MunicipalDanfseParser
         $d['info_comp'] = $get($el('OutrasInformacoes')) ?: $d['info_comp'];
         $d['totais_aproximados'] = 'Totais Aproximados dos Tributos cfe. Lei nº 12.741/2012: Federais: -; Estaduais: -; Municipais: -';
         $d['marca_agua'] = '';
-        // Chave municipal não é a chave nacional de 50 posições. Sem URL informada pelo provedor, não inventar QR.
+        // Só gera o QR nacional quando o próprio XML autorizado contém a chave nacional e o ambiente.
         $d['qrcode_payload'] = '';
+        if ($chaveNacional && in_array($d['tp_amb'], ['1', '2'], true)) {
+            $host = $d['tp_amb'] === '1' ? 'www.nfse.gov.br' : 'www.producaorestrita.nfse.gov.br';
+            $d['qrcode_payload'] = 'https://' . $host . '/ConsultaPublica/?tpc=1&chave=' . $d['chave'];
+        }
 
         return $d;
     }
